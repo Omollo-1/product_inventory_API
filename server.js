@@ -31,60 +31,83 @@ app.get('/products/:id', (req, res) => {
     res.status(200).json(product);
 });
 
-// UPDATE a product by ID
-app.put('/products/:id', (req, res) => {
-    const productId = Number(req.params.id);
-    const productIndex = products.findIndex((item) => item.id === productId);
+const cors = require('cors');
+const morgan = require('morgan');
 
-    if (productIndex === -1) {
-        return res.status(404).json({ error: 'Product not found' });
-    }
+// App middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
 
-    const { name, price, quantity } = req.body;
 
-    if (name === undefined || price === undefined || quantity === undefined) {
-        return res.status(400).json({
-            error: 'Name, price and quantity are required'
-        });
-    }
+let products = [];
+let nextId = 1; // simple auto-increment id for new products
 
-    if (
-        typeof name !== 'string' ||
-        name.trim() === '' ||
-        typeof price !== 'number' ||
-        price < 0 ||
-        !Number.isInteger(quantity) ||
-        quantity < 0
-    ) {
-        return res.status(400).json({ error: 'Invalid product data' });
-    }
-
-    const updatedProduct = {
-        id: productId,
-        name: name.trim(),
-        price,
-        quantity
-    };
-
-    products[productIndex] = updatedProduct;
-    res.status(200).json(updatedProduct);
+//routes
+app.get('/', (req, res) => {
+  res.json({
+    endpoints: {
+      health: 'GET /health',
+      listProducts: 'GET /products',
+      createProduct: 'POST /products',
+    },
+  });
 });
 
-// DELETE a product by ID
-app.delete('/products/:id', (req, res) => {
-    const productId = Number(req.params.id);
-    const productIndex = products.findIndex((item) => item.id === productId);
-
-    if (productIndex === -1) {
-        return res.status(404).json({ error: 'Product not found' });
-    }
-
-    const deletedProduct = products.splice(productIndex, 1)[0];
-    res.status(200).json({
-        message: 'Product deleted successfully',
-        product: deletedProduct
-    });
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
+
+// GET /products - list all products currently in memory
+app.get('/products', (req, res) => {
+  res.status(200).json({ count: products.length, products });
+});
+
+// POST /products 
+app.post('/products', (req, res) => {
+  const { name, price, quantity, category } = req.body;
+
+  // Basic validation
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'Product "name" is required and must be a string.' });
+  }
+  if (price === undefined || typeof price !== 'number' || price < 0) {
+    return res.status(400).json({ error: 'Product "price" is required and must be a non-negative number.' });
+  }
+  if (quantity === undefined || typeof quantity !== 'number' || quantity < 0) {
+    return res.status(400).json({ error: 'Product "quantity" is required and must be a non-negative number.' });
+  }
+
+  const newProduct = {
+    id: nextId++,
+    name,
+    price,
+    quantity,
+    category: category || 'Uncategorized',
+    createdAt: new Date().toISOString(),
+  };
+
+  products.push(newProduct);
+
+  res.status(201).json({ message: 'Product created successfully.', product: newProduct });
+});
+
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
+
+// Start server
+
+module.exports = app;
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
