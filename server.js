@@ -5,7 +5,7 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+
 
 // Temporary in-memory product data.
 let products = [
@@ -14,10 +14,7 @@ let products = [
     { id: 3, name: 'Keyboard', price: 120000, quantity: 10 }
 ];
 
-// GET all products
-app.get('/products', (req, res) => {
-    res.status(200).json(products);
-});
+
 
 // GET one product by ID
 app.get('/products/:id', (req, res) => {
@@ -41,8 +38,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 
-let products = [];
-let nextId = 1; // simple auto-increment id for new products
+
+let nextId = 4; // simple auto-increment id for new products
 
 //routes
 app.get('/', (req, res) => {
@@ -93,7 +90,49 @@ app.post('/products', (req, res) => {
   res.status(201).json({ message: 'Product created successfully.', product: newProduct });
 });
 
+// PUT /products/:id - Update a product
+app.put('/products/:id', (req, res) => {
+  const productId = Number(req.params.id);
+  const product = products.find(item => item.id === productId);
 
+  if (!product) {
+    return res.status(404).json({
+      error: 'Product not found'
+    });
+  }
+
+  const { name, price, quantity, category } = req.body;
+
+  if (name !== undefined) product.name = name;
+  if (price !== undefined) product.price = price;
+  if (quantity !== undefined) product.quantity = quantity;
+  if (category !== undefined) product.category = category;
+
+  res.status(200).json({
+    message: 'Product updated successfully',
+    product
+  });
+});
+
+// DELETE /products/:id - Delete a product
+app.delete('/products/:id', (req, res) => {
+  const productId = Number(req.params.id);
+
+  const index = products.findIndex(item => item.id === productId);
+
+  if (index === -1) {
+    return res.status(404).json({
+      error: 'Product not found'
+    });
+  }
+
+  const deletedProduct = products.splice(index, 1);
+
+  res.status(200).json({
+    message: 'Product deleted successfully',
+    product: deletedProduct[0]
+  });
+});
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
